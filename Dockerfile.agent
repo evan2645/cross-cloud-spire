@@ -1,0 +1,6 @@
+FROM gcr.io/spiffe-io/spire-agent:unstable
+WORKDIR /opt/spire
+
+RUN mkdir -p data/agent
+COPY --from=spire-server-global /opt/spire/bootstrap.pem bootstrap.pem
+ENTRYPOINT ["bin/spire-agent", "run"]

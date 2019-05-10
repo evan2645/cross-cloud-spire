@@ -1,0 +1,193 @@
+# Required cluster role to allow spire-server to query k8s API server
+kind: ClusterRole
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: spire-server-cluster-role
+rules:
+- apiGroups: [""]
+  resources: ["pods", "nodes"]
+  verbs: ["get"]
+- apiGroups: ["authentication.k8s.io"]
+  resources: ["tokenreviews"]
+  verbs: ["get", "create"]
+
+---
+
+# Binds above cluster role to spire-server service account
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: spire-server-cluster-role-binding
+  namespace: spire
+subjects:
+- kind: ServiceAccount
+  name: spire-server
+  namespace: spire
+roleRef:
+  kind: ClusterRole
+  name: spire-server-cluster-role
+  apiGroup: rbac.authorization.k8s.io
+
+---
+
+# Required cluster role to allow spire-agent to query k8s API server
+kind: ClusterRole
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: spire-global-agent-cluster-role
+rules:
+- apiGroups: [""]
+  resources: ["pods","nodes", "nodes/proxy"]
+  verbs: ["get"]
+
+---
+
+# Binds above cluster role to spire-server service account
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: spire-global-agent-cluster-role-binding
+subjects:
+- kind: ServiceAccount
+  name: spire-server
+  namespace: spire
+roleRef:
+  kind: ClusterRole
+  name: spire-global-agent-cluster-role
+  apiGroup: rbac.authorization.k8s.io
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: spire-server
+  namespace: spire
+spec:
+  type: NodePort
+  ports:
+    - name: grpc
+      port: 8081
+      targetPort: 8081
+      protocol: TCP
+  selector:
+    app: spire-server
+
+---
+
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+  name: server-data
+  namespace: spire
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+
+---
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: spire-server
+  namespace: spire
+  labels:
+    app: spire-server
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: spire-server
+  template:
+    metadata:
+      namespace: spire
+      labels:
+        app: spire-server
+    spec:
+      serviceAccountName: spire-server
+      hostPID: true
+      hostNetwork: true
+      dnsPolicy: ClusterFirstWithHostNet
+      containers:
+        - name: spire-agent
+          image: spire-agent
+          imagePullPolicy: Never
+          volumeMounts:
+            - name: agent-config
+              mountPath: /opt/spire/conf/agent
+              readOnly: true
+            - name: agent-psat-token
+              mountPath: /var/run/secrets/tokens
+            - name: socket
+              mountPath: /opt/spire/socket
+          livenessProbe:
+            exec:
+              command:
+                - /opt/spire/bin/spire-agent
+                - healthcheck
+                - --shallow
+                - --socketPath
+                - socket/workload_api.sock
+            failureThreshold: 4
+            initialDelaySeconds: 15
+            periodSeconds: 15
+            timeoutSeconds: 3
+        - name: spire-server
+          image: spire-server-regional
+          imagePullPolicy: Never
+          ports:
+            - containerPort: 8081
+          volumeMounts:
+            - name: server-config
+              mountPath: /opt/spire/conf/server
+              readOnly: true
+            - name: server-data
+              mountPath: /opt/spire/data
+              readOnly: false
+            - name: socket
+              mountPath: /opt/spire/socket
+          livenessProbe:
+            exec:
+              command:
+                - /opt/spire/bin/spire-server
+                - healthcheck
+                - --shallow
+                - --registrationUDSPath
+                - socket/registration_api.sock
+            failureThreshold: 4
+            initialDelaySeconds: 15
+            periodSeconds: 15
+            timeoutSeconds: 3
+          readinessProbe:
+            exec:
+              command:
+                - /opt/spire/bin/spire-server
+                - healthcheck
+                - --registrationUDSPath
+                - socket/registration_api.sock
+            initialDelaySeconds: 15
+            periodSeconds: 15
+            timeoutSeconds: 3
+      volumes:
+        - name: agent-config
+          configMap:
+            name: global-agent-config
+        - name: agent-psat-token
+          projected:
+            sources:
+              - serviceAccountToken:
+                  path: spire-agent
+                  expirationSeconds: 7200
+                  audience: spire-server
+        - name: server-config
+          configMap:
+            name: server-config
+        - name: server-data
+          persistentVolumeClaim:
+            claimName: server-data
+        - name: socket
+          emptyDir: {}
+

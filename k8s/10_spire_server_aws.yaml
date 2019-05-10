@@ -1,0 +1,220 @@
+# Required cluster role to allow spire-agent to query kubelet API server
+kind: ClusterRole
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: spire-global-agent-cluster-role
+rules:
+- apiGroups: [""]
+  resources: ["nodes/proxy"]
+  verbs: ["get"]
+
+---
+
+# Binds above cluster role to spire-server service account
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: spire-global-agent-cluster-role-binding
+subjects:
+- kind: ServiceAccount
+  name: spire-server
+  namespace: spire
+roleRef:
+  kind: ClusterRole
+  name: spire-global-agent-cluster-role
+  apiGroup: rbac.authorization.k8s.io
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: spire-server
+  namespace: spire
+spec:
+  type: NodePort
+  ports:
+    - name: grpc
+      port: 8081
+      targetPort: 8081
+      protocol: TCP
+  selector:
+    app: spire-server
+
+---
+
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+  name: server-data
+  namespace: spire
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+
+---
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: server-iid-docs
+  namespace: spire
+data:
+  document: |-
+    {
+      "devpayProductCodes" : null,
+      "marketplaceProductCodes" : null,
+      "accountId" : "884177950120",
+      "availabilityZone" : "us-west-2b",
+      "kernelId" : null,
+      "ramdiskId" : null,
+      "pendingTime" : "2019-05-13T20:49:30Z",
+      "architecture" : "x86_64",
+      "privateIp" : "172.31.62.135",
+      "version" : "2017-09-30",
+      "region" : "us-west-2",
+      "imageId" : "ami-061392db613a6357b",
+      "billingProducts" : null,
+      "instanceId" : "i-0ac1a6bb7a9ea004c",
+      "instanceType" : "t2.micro"
+    }
+  signature: |-
+    R4drWY1M01c5c/Oj8GO+7xpaI+i/4r7WMmqC72J4dRMxjWV2i0F79HwX+6K7Rd3PY+olOF/vXVN82gLJCcbLoVnbYM1z21n7BAY0PdGXL4Vy+AuegO3rZIFWFjB07PcOVgdQjjX8Iaay1ZnVj87vVevcSERRoXA/vLbhKTRJBbg=
+
+---
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: server-iid-config
+  namespace: spire
+data:
+  default.conf: |
+    server {
+        listen       127.0.0.1:80;
+        server_name  localhost;
+    
+        location / {
+            root   /usr/share/nginx/html;
+        }
+    }
+
+---
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: spire-server
+  namespace: spire
+  labels:
+    app: spire-server
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: spire-server
+  template:
+    metadata:
+      namespace: spire
+      labels:
+        app: spire-server
+    spec:
+      serviceAccountName: spire-server
+      hostPID: true
+      hostNetwork: true
+      dnsPolicy: ClusterFirstWithHostNet
+      containers:
+        - name: ec2-iid-server
+          image: nginx:1.15-alpine
+          volumeMounts:
+            - name: nginx-config
+              mountPath: /etc/nginx/conf.d
+              readOnly: true
+            - name: iid-docs
+              mountPath: /usr/share/nginx/html
+              readOnly: true
+        - name: spire-agent
+          image: spire-agent
+          imagePullPolicy: Never
+          volumeMounts:
+            - name: agent-config
+              mountPath: /opt/spire/conf/agent
+              readOnly: true
+            - name: agent-data
+              mountPath: /opt/spire/data/agent
+            - name: socket
+              mountPath: /opt/spire/socket
+          livenessProbe:
+            exec:
+              command:
+                - /opt/spire/bin/spire-agent
+                - healthcheck
+                - --shallow
+                - --socketPath
+                - socket/workload_api.sock
+            failureThreshold: 4
+            initialDelaySeconds: 15
+            periodSeconds: 15
+            timeoutSeconds: 3
+        - name: spire-server
+          image: spire-server-regional
+          imagePullPolicy: Never
+          ports:
+            - containerPort: 8081
+          volumeMounts:
+            - name: server-config
+              mountPath: /opt/spire/conf/server
+              readOnly: true
+            - name: server-data
+              mountPath: /opt/spire/data/server
+              readOnly: false
+            - name: socket
+              mountPath: /opt/spire/socket
+          livenessProbe:
+            exec:
+              command:
+                - /opt/spire/bin/spire-server
+                - healthcheck
+                - --shallow
+                - --registrationUDSPath
+                - socket/registration_api.sock
+            failureThreshold: 4
+            initialDelaySeconds: 15
+            periodSeconds: 15
+            timeoutSeconds: 3
+          readinessProbe:
+            exec:
+              command:
+                - /opt/spire/bin/spire-server
+                - healthcheck
+                - --registrationUDSPath
+                - socket/registration_api.sock
+            initialDelaySeconds: 15
+            periodSeconds: 15
+            timeoutSeconds: 3
+      volumes:
+        - name: nginx-config
+          configMap:
+            name: server-iid-config
+        - name: iid-docs
+          configMap:
+            name: server-iid-docs
+        - name: agent-config
+          configMap:
+            name: global-agent-config
+        - name: agent-data
+          hostPath:
+            path: /var/run/spire/global-agent
+            type: DirectoryOrCreate
+        - name: server-config
+          configMap:
+            name: server-config
+        - name: server-data
+          persistentVolumeClaim:
+            claimName: server-data
+        - name: socket
+          emptyDir: {}
+

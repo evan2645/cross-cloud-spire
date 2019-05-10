@@ -1,0 +1,89 @@
+# Required cluster role to allow spire-agent to query k8s API server
+kind: ClusterRole
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: spire-agent-cluster-role
+rules:
+- apiGroups: [""]
+  resources: ["pods","nodes", "nodes/proxy"]
+  verbs: ["get"]
+
+---
+
+# Binds above cluster role to spire-agent service account
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: spire-agent-cluster-role-binding
+subjects:
+- kind: ServiceAccount
+  name: spire-agent
+  namespace: spire
+roleRef:
+  kind: ClusterRole
+  name: spire-agent-cluster-role
+  apiGroup: rbac.authorization.k8s.io
+
+---
+
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: spire-agent
+  namespace: spire
+  labels:
+    app: spire-agent
+spec:
+  selector:
+    matchLabels:
+      app: spire-agent
+  template:
+    metadata:
+      namespace: spire
+      labels:
+        app: spire-agent
+    spec:
+      serviceAccountName: spire-agent
+      hostPID: true
+      hostNetwork: true
+      dnsPolicy: ClusterFirstWithHostNet
+      containers:
+        - name: spire-agent
+          image: spire-agent
+          imagePullPolicy: Never
+          volumeMounts:
+            - name: agent-config
+              mountPath: /opt/spire/conf/agent
+              readOnly: true
+            - name: agent-psat-token
+              mountPath: /var/run/secrets/tokens
+            - name: socket
+              mountPath: /opt/spire/socket
+          livenessProbe:
+            exec:
+              command:
+                - /opt/spire/bin/spire-agent
+                - healthcheck
+                - --shallow
+                - --socketPath
+                - socket/workload_api.sock
+            failureThreshold: 4
+            initialDelaySeconds: 15
+            periodSeconds: 15
+            timeoutSeconds: 3
+      volumes:
+        - name: agent-config
+          configMap:
+            name: agent-config
+        - name: agent-psat-token
+          projected:
+            sources:
+              - serviceAccountToken:
+                  path: spire-agent
+                  expirationSeconds: 7200
+                  audience: spire-server
+        - name: socket
+          hostPath:
+            path: /var/run/spire/socket
+            type: DirectoryOrCreate
+

@@ -1,0 +1,28 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: spire
+
+---
+
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: spire-server
+  namespace: spire
+
+---
+
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: global-spire-agent
+  namespace: spire
+
+---
+
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: spire-agent
+  namespace: spire

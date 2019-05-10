@@ -1,0 +1,18 @@
+FROM gcr.io/spiffe-io/spire-server:unstable as builder
+WORKDIR /opt/spire/
+
+# Lay down a stable authority
+ADD support/create_authority.sh .
+ADD build/kubeconfig.yml conf/server/kubeconfig.yml
+ADD conf/server/global.conf conf/server/server.conf
+RUN mkdir -p data/server
+RUN ./create_authority.sh
+
+# Create the server image with the stable authority included
+FROM gcr.io/spiffe-io/spire-server:unstable
+WORKDIR /opt/spire
+COPY --from=builder /opt/spire/bootstrap.pem bootstrap.pem
+COPY --from=builder /opt/spire/data/server data/server 
+COPY --from=builder /opt/spire/conf/server conf/server
+EXPOSE 8081
+ENTRYPOINT ["bin/spire-server", "run"]

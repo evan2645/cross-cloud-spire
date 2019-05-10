@@ -1,0 +1,9 @@
+FROM gcr.io/spiffe-io/spire-server:unstable
+WORKDIR /opt/spire
+
+RUN mkdir -p data/server
+RUN mkdir socket
+COPY --from=spire-server-global /opt/spire/bootstrap.pem bootstrap.pem
+COPY --from=spire-server-global /opt/spire/conf/server/kubeconfig.yml kubeconfig.yml
+EXPOSE 8081
+ENTRYPOINT ["bin/spire-server", "run"]
