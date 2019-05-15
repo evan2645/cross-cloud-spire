@@ -2,24 +2,24 @@
 
 source support/colors.sh
 
-minikube status --profile west-1 > /dev/null
-west_1_status=$?
+minikube status --profile west-2 > /dev/null
+west_2_status=$?
 minikube status --profile north-1 > /dev/null
 north_1_status=$?
 
 set -e
 
-if [ $west_1_status != "0" ]; then
+if [ $west_2_status != "0" ]; then
         echo_bold
-        echo_bold "Starting minikube profile \"west-1\""
+        echo_bold "Starting minikube profile \"west-2\""
         echo_bold
 
-        minikube start -p "west-1" --kubernetes-version v1.14.1 \
+        minikube start -p "west-2" --kubernetes-version v1.14.1 \
                        --extra-config=kubelet.authentication-token-webhook=true \
                        --extra-config=kubelet.authorization-mode=Webhook
 else
         echo_bold
-        echo_bold "Minikube profile \"west-1\" is already started"
+        echo_bold "Minikube profile \"west-2\" is already started"
         echo_bold
 fi
 

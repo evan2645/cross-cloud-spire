@@ -3,10 +3,10 @@
 source support/colors.sh
 
 echo_bold
-echo_bold "Halting minikube in west-1"
+echo_bold "Halting minikube in west-2"
 echo_bold
 
-minikube stop --profile west-1
+minikube stop --profile west-2
 
 echo_bold
 echo_bold "Halting minikube in north-1"

@@ -31,13 +31,13 @@ echo_bold
 docker build --no-cache -f Dockerfile.agent -t spire-agent .
 
 echo_bold
-echo_bold "Sending regional images to west-1"
+echo_bold "Sending regional images to west-2"
 echo_bold
 
 docker save -o build/spire-server-regional.tar spire-server-regional
 docker save -o build/spire-agent.tar spire-agent
 
-eval $(minikube docker-env --profile west-1)
+eval $(minikube docker-env --profile west-2)
 docker load -i build/spire-server-regional.tar
 docker load -i build/spire-agent.tar
 

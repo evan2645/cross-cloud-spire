@@ -28,10 +28,10 @@ EOF
 }
 
 echo_bold
-echo_bold "Deploying SPIRE server and agents in west-1 using AWS-based node attestation"
+echo_bold "Deploying SPIRE server and agents in west-2 using AWS-based node attestation"
 echo_bold
 
-kubectl config use-context west-1
+kubectl config use-context west-2
 
 kubectl apply -f k8s/00_ns_and_sa.yaml
 

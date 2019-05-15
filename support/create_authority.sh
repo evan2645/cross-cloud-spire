@@ -9,7 +9,7 @@ sleep 1
 # Stash the bundle so we can use it for subsequent builds
 ./bin/spire-server bundle show > bootstrap.pem
 
-# Create a workload entry for our downstream SPIRE server in west-1
+# Create a workload entry for our downstream SPIRE server in west-2
 ./bin/spire-server entry create -downstream \
         -selector k8s:ns:spire \
         -selector k8s:sa:spire-server \
