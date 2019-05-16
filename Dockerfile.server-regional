@@ -1,4 +1,4 @@
-FROM gcr.io/spiffe-io/spire-server:unstable
+FROM gcr.io/spiffe-io/spire-server:c8123525fba8943bb084e70317afe32986247424
 WORKDIR /opt/spire
 
 RUN mkdir -p data/server

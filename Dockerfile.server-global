@@ -1,4 +1,4 @@
-FROM gcr.io/spiffe-io/spire-server:unstable as builder
+FROM gcr.io/spiffe-io/spire-server:c8123525fba8943bb084e70317afe32986247424 as builder
 WORKDIR /opt/spire/
 
 # Lay down a stable authority
@@ -9,7 +9,7 @@ RUN mkdir -p data/server
 RUN ./create_authority.sh
 
 # Create the server image with the stable authority included
-FROM gcr.io/spiffe-io/spire-server:unstable
+FROM gcr.io/spiffe-io/spire-server:c8123525fba8943bb084e70317afe32986247424
 WORKDIR /opt/spire
 COPY --from=builder /opt/spire/bootstrap.pem bootstrap.pem
 COPY --from=builder /opt/spire/data/server data/server 

@@ -26,6 +26,16 @@ kubectl delete -f k8s/40_spire_agent_k8s.yaml
 kubectl delete -f k8s/30_spire_server_k8s.yaml
 kubectl delete -f k8s/00_ns_and_sa.yaml
 
+docker ps | grep spire-server-global > /dev/null
+
+if [ $? != 0 ]; then
+        echo_bold
+        echo_bold "SPIRE server global tier already stopped"
+        echo_bold
+
+        exit
+fi
+
 echo_bold
 echo_bold "Stopping global SPIRE server"
 
