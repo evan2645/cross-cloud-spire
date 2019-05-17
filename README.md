@@ -15,6 +15,8 @@ This example was developed, tested, and presented from MacOS. It might work on L
 * Minikube
 * Make
 
+An instance of SPIRE server will be started on the host machine and by default it binds to port 8081. If anything else is listening on port 8081, it will fail to start.
+
 ## Starting the example
 
 This example contains some dockerfiles, some kubernetes yaml, and a bunch of shell scripts. They are tied together by a Makefile so turning things up and down is simple. To get up and running, clone this repo and try out the following commands:
