@@ -25,11 +25,3 @@ This example contains some dockerfiles, some kubernetes yaml, and a bunch of she
 * `make stop`: Tears down SPIRE server and agent deployments and related configuration. Does not stop minikube, though.
 * `make halt`: Stops minikube
 * `make clean`: Deletes minikube clusters and fully resets this example
-
-## Using the example
-
-TODO
-
-## What exactly am I looking at?
-
-TODO
